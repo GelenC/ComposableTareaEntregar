@@ -1,4 +1,4 @@
-package com.example.composabletareaentregar
+package com.example.composabletareaentregar.Database
 
 import android.content.Context
 import androidx.room.Database
@@ -9,7 +9,7 @@ import androidx.room.TypeConverters
 @Database(entities = [Usuario::class], version = 1)
 @TypeConverters(Converter::class)
 abstract class AppDatabase: RoomDatabase() {
-    abstract fun usuarioDao():UsuarioDao
+    abstract fun usuarioDao(): UsuarioDao
 
     companion object {
         @Volatile

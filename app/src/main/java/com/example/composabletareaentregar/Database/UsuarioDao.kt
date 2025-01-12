@@ -1,4 +1,4 @@
-package com.example.composabletareaentregar
+package com.example.composabletareaentregar.Database
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -11,7 +11,7 @@ interface UsuarioDao {
     suspend fun insert(usuario: Usuario)
 
     @Query("SELECT * FROM usuarios WHERE usuario LIKE :nombreBuscado")
-    suspend fun verificarUsuario(nombreBuscado:String):Usuario
+    suspend fun verificarUsuario(nombreBuscado:String): Usuario
 
     @Query("UPDATE usuarios SET fechaInicio = :timestamp WHERE usuario LIKE :usuarionombre")
     suspend fun updateFecha(usuarionombre: String, timestamp: LocalDateTime)

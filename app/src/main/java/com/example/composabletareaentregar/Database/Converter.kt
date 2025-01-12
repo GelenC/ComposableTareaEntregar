@@ -1,4 +1,4 @@
-package com.example.composabletareaentregar
+package com.example.composabletareaentregar.Database
 
 import androidx.room.TypeConverter
 import java.time.LocalDateTime

@@ -1,5 +1,6 @@
 package com.example.composabletareaentregar
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
@@ -12,24 +13,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,9 +47,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.room.Room
+import coil.compose.AsyncImage
+import com.example.composabletareaentregar.Database.AppDatabase
+import com.example.composabletareaentregar.Database.Usuario
+import com.example.composabletareaentregar.Database.UsuarioDao
+import com.example.composabletareaentregar.Database.UsuarioRepository
+import com.example.composabletareaentregar.Retrofit.APIService
+import com.example.composabletareaentregar.Retrofit.DogResponse
 import com.example.composabletareaentregar.ui.theme.ComposableTareaEntregarTheme
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.create
 import java.time.LocalDateTime
 
 
@@ -59,7 +79,6 @@ class MainActivity : ComponentActivity() {
 
 // Actualizar interfaz en el hilo principal
     private val handler = Handler(Looper.getMainLooper())
-    private var isWorkerRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +105,7 @@ class MainActivity : ComponentActivity() {
                             Registro(navController, usuarioDao)
                         }
                         composable("consultar") {
-                           Consultar(navController, isWorkerRunning, handler)
+                           Consultar(navController, handler)
                         }
                     }
                 }
@@ -144,7 +163,7 @@ fun IniciarSesion(userRepository: UsuarioRepository? = null, navController: NavC
     }
 }
 
-private fun VerificarUsuario(userRepository: UsuarioRepository, coroutineScope:CoroutineScope, navController:NavController, usuarioDao: UsuarioDao,usuario: Usuario, context: Context){
+private fun VerificarUsuario(userRepository: UsuarioRepository, coroutineScope:CoroutineScope, navController:NavController, usuarioDao: UsuarioDao, usuario: Usuario, context: Context){
  //Ejecuto la corrutina para llamar a la función "verificarUsuario"
     coroutineScope.launch {
         val usuarioExiste = userRepository.verificarUsuario(usuario.usuario)
@@ -199,8 +218,7 @@ fun Registro(navController: NavController?=null, usuarioDao: UsuarioDao?=null){
         }
         Spacer(modifier = Modifier.padding(100.dp))
         Button(onClick = {
-            if (navController!=null)
-                navController.navigate("iniciar_sesion")
+            navController?.navigate("iniciar_sesion")
         },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
             modifier = Modifier
                 .width(150.dp)
@@ -219,65 +237,147 @@ private fun RegistrarUsuario(usuarioDao: UsuarioDao, usuario: Usuario, coroutine
     }
 }
 
+
+@Composable
+fun Consultar(navController: NavController? = null, handler: Handler) {
+    val context = LocalContext.current
+    var perroRaza by remember { mutableStateOf("") }
+
+// Variable para controlar si el Handler está en ejecución
+    val isRunning = remember { mutableStateOf(false) }
+
+// Lista de datos para mostrar en la LazyColumn
+    val dogImages = remember { mutableStateListOf<String>() }
+
+
+    //Metodo para buscar las fotos de un perro por su raza
+    fun BuscarPorNombre(){
+        //Se implementa en una corrutina
+        CoroutineScope(Dispatchers.IO).launch {
+            val solicitar:Response<DogResponse> = RetornarRetrofit().create(APIService::class.java).getPerrosRaza("$perroRaza/images")
+            val perro:DogResponse?= solicitar.body()
+
+            if (solicitar.isSuccessful && perro!=null){
+                Log.d("Consultar", "Datos recibidos: ${perro.message}")
+                withContext(Dispatchers.Main) {
+                    dogImages.clear()
+                    dogImages.addAll(perro.message)
+                }
+            }else{
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error al obtener datos de la API", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Si no está corriendo, se ejecuta
+    if (!isRunning.value) {
+        isRunning.value = true
+        handler.post(object : Runnable {
+            override fun run() {
+                Log.d("Consultar", "Ejecutando el ciclo del Handler para mostrar el Toast.")
+                AvisoMessage("¡Puedes solicitar información en la API!", context)
+                // Repetir cada medio segundo
+                handler.postDelayed(this, 500)
+            }
+        })
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.padding(20.dp))
+        Button(
+            onClick = {
+                BuscarPorNombre()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+            modifier = Modifier
+                .width(230.dp)
+                .height(50.dp),
+            elevation = ButtonDefaults.buttonElevation(10.dp)
+        ) {
+            Text("CONSULTAR CON LA API")
+        }
+        Spacer(modifier = Modifier.padding(10.dp))
+        TextField(
+            value = perroRaza,
+            onValueChange = { newText -> perroRaza= newText },
+            placeholder = { Text("Raza de perro") },
+            singleLine = true)
+        Spacer(modifier = Modifier.padding(10.dp))
+        // LazyColumn para mostrar los datos
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(550.dp)
+                .padding(16.dp)
+        ) {
+            items(dogImages) { imageUrl ->
+                DogImageItem(imageUrl)
+            }
+        }
+
+        Spacer(modifier = Modifier.padding(20.dp))
+        Row {
+            Button(
+                onClick = {
+                    // Detener el Handler
+                    handler.removeCallbacksAndMessages(null)
+                    //isRunning.value = false
+                    navController?.navigate("iniciar_sesion")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(70.dp),
+                elevation = ButtonDefaults.buttonElevation(10.dp)
+            ) {
+                Text("VOLVER ATRÁS")
+            }
+            Spacer(modifier = Modifier.padding(16.dp))
+            Button(
+                onClick = {
+                    if (navController != null)
+                        navController.navigate("iniciar_sesion")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(70.dp),
+                elevation = ButtonDefaults.buttonElevation(10.dp)
+            ) {
+                Text("SALIR")
+            }
+        }
+    }
+}
+
 // Función para mostrar el aviso de consulta
 private fun AvisoMessage(message: String, context: Context) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
+//Metodo para instanciar el objeto Retrofit
+private fun RetornarRetrofit():Retrofit{
+    return Retrofit.Builder().baseUrl("https://dog.ceo/api/breed/").addConverterFactory(GsonConverterFactory.create()).build()
+}
+
 @Composable
-fun Consultar(navController: NavController?=null, isWorkerRunning:Boolean, handler:Handler) {
-    val context = LocalContext.current
-
-    // Variable para Controlar si el worker está en ejecución
-    val isRunning = remember { mutableStateOf(isWorkerRunning) }
-
-    // Si no está corriendo, se ejecuta
-    if (isWorkerRunning==false) {
-       // isWorkerRunning=true
-        handler.post(object : Runnable {
-            override fun run() {
-                Log.d("Consultar", "Ejecutando el ciclo del Handler para mostrar el Toast.")
-
-                AvisoMessage("¡Puedes solicitar información en la API!", context)
-           // Repetir cada medio segundo
-                handler.postDelayed(this, 500)
-            }
-        })
-
-    }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.padding(20.dp))
-        Button(onClick = {},colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+fun DogImageItem(imageUrl: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = "Dog image",
             modifier = Modifier
-                .width(230.dp)
-                .height(50.dp),
-            elevation = ButtonDefaults.buttonElevation(10.dp)) {
-            Text("CONSULTAR CON LA API")
-        }
-        Spacer(modifier = Modifier.padding(300.dp))
-        Row {
-            Button(onClick = {
-                if (navController!=null)
-                    navController.navigate("iniciar_sesion")
-            },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
-                modifier = Modifier
-                    .width(130.dp)
-                    .height(70.dp),
-                elevation = ButtonDefaults.buttonElevation(10.dp)) {
-                Text("VOLVER ATRAS")
-            }
-            Spacer(modifier = Modifier.padding(16.dp))
-            Button(onClick = {
-                if (navController!=null)
-                    navController.navigate("iniciar_sesion")
-            },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
-                modifier = Modifier
-                    .width(130.dp)
-                    .height(70.dp),
-                elevation = ButtonDefaults.buttonElevation(10.dp)) {
-                Text("SALIR")
-            }
-        }
+                .fillMaxWidth()
+                .height(600.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            contentScale = ContentScale.Crop
+        )
     }
 }
 
