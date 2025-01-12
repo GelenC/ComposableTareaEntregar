@@ -2,10 +2,14 @@ package com.example.composabletareaentregar
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -17,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,15 +43,24 @@ import androidx.room.Room
 import com.example.composabletareaentregar.ui.theme.ComposableTareaEntregarTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+
 
 /*CAMBIOS A REALIZAR:
 *Verificar la entrada de correos segun valores aceptables.
 *Cambiar el aviso de inicio fallido con un text()
+* Que se borren los campos de registro al terminar
+* Manejar la excepcion si se intenta introducir un usuario que ya está registrado
 * */
 
 class MainActivity : ComponentActivity() {
  //Creo el repositorio
     private lateinit var userRepository: UsuarioRepository
+
+// Actualizar interfaz en el hilo principal
+    private val handler = Handler(Looper.getMainLooper())
+    private var isWorkerRunning = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -72,7 +86,7 @@ class MainActivity : ComponentActivity() {
                             Registro(navController, usuarioDao)
                         }
                         composable("consultar") {
-                           Consultar(navController)
+                           Consultar(navController, isWorkerRunning, handler)
                         }
                     }
                 }
@@ -116,7 +130,7 @@ fun IniciarSesion(userRepository: UsuarioRepository? = null, navController: NavC
                 }else{
                     val InicioUsuario = Usuario(usuario, correo, 0)
                     if(userRepository!=null && navController!=null && usuarioDao!=null)
-                        VerificarUsuario(userRepository, coroutineScope, navController, InicioUsuario, context)
+                        VerificarUsuario(userRepository, coroutineScope, navController, usuarioDao,InicioUsuario, context)
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
@@ -130,7 +144,7 @@ fun IniciarSesion(userRepository: UsuarioRepository? = null, navController: NavC
     }
 }
 
-private fun VerificarUsuario(userRepository: UsuarioRepository, coroutineScope:CoroutineScope, navController:NavController, usuario: Usuario, context: Context){
+private fun VerificarUsuario(userRepository: UsuarioRepository, coroutineScope:CoroutineScope, navController:NavController, usuarioDao: UsuarioDao,usuario: Usuario, context: Context){
  //Ejecuto la corrutina para llamar a la función "verificarUsuario"
     coroutineScope.launch {
         val usuarioExiste = userRepository.verificarUsuario(usuario.usuario)
@@ -140,6 +154,8 @@ private fun VerificarUsuario(userRepository: UsuarioRepository, coroutineScope:C
             navController.navigate("registro")
         }else{
             if(usuarioExiste.correo == usuario.correo){
+                usuarioDao.updateNumInicios(usuario.usuario)
+                usuarioDao.updateFecha(usuario.usuario, LocalDateTime.now())
                 navController.navigate("consultar")
             }else{
                 Toast.makeText(context, "El correo que ingresó no coincide con el usuario", Toast.LENGTH_SHORT).show()
@@ -202,8 +218,33 @@ private fun RegistrarUsuario(usuarioDao: UsuarioDao, usuario: Usuario, coroutine
         Toast.makeText(context, "Se ha registrado correctamente", Toast.LENGTH_SHORT).show()
     }
 }
+
+// Función para mostrar el aviso de consulta
+private fun AvisoMessage(message: String, context: Context) {
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
 @Composable
-fun Consultar(navController: NavController?=null) {
+fun Consultar(navController: NavController?=null, isWorkerRunning:Boolean, handler:Handler) {
+    val context = LocalContext.current
+
+    // Variable para Controlar si el worker está en ejecución
+    val isRunning = remember { mutableStateOf(isWorkerRunning) }
+
+    // Si no está corriendo, se ejecuta
+    if (isWorkerRunning==false) {
+       // isWorkerRunning=true
+        handler.post(object : Runnable {
+            override fun run() {
+                Log.d("Consultar", "Ejecutando el ciclo del Handler para mostrar el Toast.")
+
+                AvisoMessage("¡Puedes solicitar información en la API!", context)
+           // Repetir cada medio segundo
+                handler.postDelayed(this, 500)
+            }
+        })
+
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.padding(20.dp))
         Button(onClick = {},colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
@@ -214,15 +255,28 @@ fun Consultar(navController: NavController?=null) {
             Text("CONSULTAR CON LA API")
         }
         Spacer(modifier = Modifier.padding(300.dp))
-        Button(onClick = {
-            if (navController!=null)
-            navController.navigate("iniciar_sesion")
-        },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
-            modifier = Modifier
-                .width(200.dp)
-                .height(50.dp),
-            elevation = ButtonDefaults.buttonElevation(10.dp)) {
-            Text("VOLVER ATRÁS")
+        Row {
+            Button(onClick = {
+                if (navController!=null)
+                    navController.navigate("iniciar_sesion")
+            },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(70.dp),
+                elevation = ButtonDefaults.buttonElevation(10.dp)) {
+                Text("VOLVER ATRAS")
+            }
+            Spacer(modifier = Modifier.padding(16.dp))
+            Button(onClick = {
+                if (navController!=null)
+                    navController.navigate("iniciar_sesion")
+            },colors = ButtonDefaults.buttonColors(containerColor = Color.Gray, contentColor = Color.White),
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(70.dp),
+                elevation = ButtonDefaults.buttonElevation(10.dp)) {
+                Text("SALIR")
+            }
         }
     }
 }
@@ -232,5 +286,5 @@ fun Consultar(navController: NavController?=null) {
 fun Visualizacion(){
     //IniciarSesion()
     //Consultar()
-     Registro()
+    //Registro()
 }

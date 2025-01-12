@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import java.time.LocalDateTime
-
+//Utilizamos el suspend para que se ejecuten fuera del hilo principal y no den error
 @Dao
 interface UsuarioDao {
     @Insert
@@ -14,8 +14,8 @@ interface UsuarioDao {
     suspend fun verificarUsuario(nombreBuscado:String):Usuario
 
     @Query("UPDATE usuarios SET fechaInicio = :timestamp WHERE usuario LIKE :usuarionombre")
-    fun updateFecha(usuarionombre: String, timestamp: LocalDateTime)
+    suspend fun updateFecha(usuarionombre: String, timestamp: LocalDateTime)
 
     @Query("UPDATE usuarios SET numInicios = numInicios+1 WHERE usuario LIKE :usuarionombre")
-    fun updateNumInicios(usuarionombre: String)
+    suspend fun updateNumInicios(usuarionombre: String)
 }
