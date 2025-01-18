@@ -5,7 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-
+/*Clase que define la base de datos local usando Room, contiene métodos abstractos
+para acceder a los DAO*/
 @Database(entities = [Usuario::class], version = 1)
 @TypeConverters(Converter::class)
 abstract class AppDatabase: RoomDatabase() {
@@ -21,7 +22,7 @@ abstract class AppDatabase: RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "usuarios_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

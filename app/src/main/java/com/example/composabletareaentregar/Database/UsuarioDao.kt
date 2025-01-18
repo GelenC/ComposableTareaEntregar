@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import java.time.LocalDateTime
-//Utilizamos el suspend para que se ejecuten fuera del hilo principal y no den error
+/*interfaz que contiene los métodos para interactuar con la tabla Usuario*/
 @Dao
 interface UsuarioDao {
     @Insert
@@ -12,6 +12,9 @@ interface UsuarioDao {
 
     @Query("SELECT * FROM usuarios WHERE usuario LIKE :nombreBuscado")
     suspend fun verificarUsuario(nombreBuscado:String): Usuario
+
+    @Query("SELECT * FROM usuarios WHERE correo LIKE :correo AND usuario NOT LIKE :usuarionombre")
+    suspend fun verificarCorreo(correo: String, usuarionombre: String): Usuario
 
     @Query("UPDATE usuarios SET fechaInicio = :timestamp WHERE usuario LIKE :usuarionombre")
     suspend fun updateFecha(usuarionombre: String, timestamp: LocalDateTime)
