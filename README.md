@@ -3,7 +3,7 @@
 
 ## Descripción de la aplicación
 
-My Dog API es una aplicación Android diseñada para permitir a los usuarios registrarse, iniciar sesión y consultar imágenes de perros a través de una API gratuita. Los usuarios pueden buscar imágenes de perros según la raza y visualizar los resultados de manera visual y atractiva. Además, la app incluye una notificación recurrente implementada con hilos (Handler) que recuerda a los usuarios que pueden consultar la API en cualquier momento. Además se utiliza una base de datos local donde los usuarios registrados se guardan usando Room para facilitar la gestión de datos de usuarios.
+My Dog API es una aplicación Android diseñada para permitir a los usuarios registrarse, iniciar sesión y consultar imágenes de perros a través de una API gratuita. Los usuarios pueden buscar imágenes de perros según la raza y visualizar los resultados de manera visual y atractiva. La app incluye una notificación recurrente implementada con hilos (Handler) que recuerda a los usuarios que pueden consultar la API en cualquier momento. Además se utiliza una base de datos local donde los usuarios registrados se guardan usando Room para facilitar la gestión de datos de usuarios.
 
 ## Tecnologías utilizadas
 - **Android Studio** - Entorno de desarrollo.
